@@ -58,7 +58,7 @@ app.post("/Registing", UserPhotoUploaded.single("image"), async (req, res) => {
         const salt = await bcrypt.genSalt(10)
         const password = await bcrypt.hash(mdp, salt)
         const image = req.file ? req.file.filename : "default.jpg"
-        console.log({ nom, prenom, email, mdp, password, image })
+        // console.log({ nom, prenom, email, mdp, password, image })
         // VERIFICATION SI L'USER EXISTE
         const SqlUserVerifing = "SELECT * FROM users WHERE email=?"
         const emailUserVerifing = email
@@ -82,7 +82,7 @@ app.post("/Login", async (req, res) => {
         const body = { ...req.body }
         const Email = body.Email
         const Password = body.Password
-        console.log(body)
+        // console.log(body)
         const Sql = "SELECT * FROM users WHERE email=?"
         const Value = Email
         const [rows] = await db.execute(Sql, Value)
@@ -159,7 +159,7 @@ app.get("/AccessoriesOne", TokenVerify, async (req, res) => {
     try {
         const page = parseInt(req.query.page)
         const pageLimit = parseInt(req.query.limit)
-        console.log(page, pageLimit)
+        // console.log(page, pageLimit)
         // console.log(req.params)
         const pageOffset = (page - 1) * pageLimit
         const SqlProduct = "SELECT * FROM products WHERE category IN ('accessoriesOne','accessoriesTwo') LIMIT ? OFFSET ?"
@@ -180,11 +180,11 @@ app.get("/Accessories", async (req, res) => {
         const page = parseInt(req.query.page) || 1
         const pageLimit = parseInt(req.query.limit) || 5
         const pageOffset = (page - 1) * pageLimit
-        console.log(page, pageLimit)
+        // console.log(page, pageLimit)
         // console.log(req.params)
         const name = req.query.accessoire
         const Value = `%${name}%`
-        console.log(name)
+        // console.log(name)
         const Sql = "SELECT * FROM products WHERE name LIKE ? AND category IN ('drum','accessoriesOne','accessoriesTwo')"
         const SqlNombreTotalDeProduit = "SELECT COUNT(*) AS Total FROM products WHERE name LIKE ? AND category IN ('accessoriesOne','accessoriesTwo')"
         const SearchResponse = await db.execute(Sql,Value)
@@ -199,7 +199,7 @@ app.get("/Product/:id", TokenVerify, async (req, res) => {
     try {
         const id = req.params.id
         const User = req.userInfo
-        console.log(id)
+        // console.log(id)
         const Sql = "SELECT * FROM products WHERE id=?"
         const response = await db.execute(Sql, id)
         res.json({ response, User, status: 200 })
@@ -207,17 +207,18 @@ app.get("/Product/:id", TokenVerify, async (req, res) => {
         console.log(`erreur Sql trouvée : ${error}`)
     }
 })
-app.post("/Product/:id", TokenVerify, async (req, res) => {
+app.post("/Product", TokenVerify, async (req, res) => {
     try {
-        const ProductId = req.params.id
+        const ProductId = {...req.body}
+        // const ProductId = req.params.id
         const UserId = req.userInfo.id
         // console.log(req.userInfo)
-        // console.log(ProductId,UserId)
-        // const Sql = "INSERT INTO command(user_id,product_id) VALUES(?,?)"
-        // const Values = [UserId,ProductId]
-        // const response = await db.execute(Sql,Values)
-        // res.json({response,status:200})
-        res.json({ status: 200, message: "produit ajoutée" })
+        console.log(ProductId.id,UserId)
+        const Sql = "INSERT INTO command(user_id,product_id) VALUES(?,?)"
+        const Values = [UserId,ProductId.id]
+        const response = await db.execute(Sql,Values)
+        res.json({response,status:200})
+        // res.json({ status: 200, message: "produit ajoutée" })
     } catch (error) {
         console.log(error)
     }
@@ -228,7 +229,7 @@ app.get("/Product", TokenVerify, async (req, res) => {
         const Sql = "SELECT products.id AS products_id,products.name,products.describes,products.pics,products.category,products.price,command.id AS command_id,command.product_id,command.status FROM command INNER JOIN products ON command.product_id=products.id WHERE command.user_id=? ORDER BY command_at DESC"
 
         const response = await db.execute(Sql, [UserId])
-        console.log(UserId)
+        // console.log(UserId)
         res.json(response)
     } catch (error) {
         console.log(error)
@@ -245,9 +246,4 @@ app.delete("/Product/:id", TokenVerify, async (req, res) => {
         console.lopg(error)
     }
 })
-// TokenVerify()
-
-
-
-
 app.listen(Port, () => console.log("Le serveur est démarré sur le port" + Port))
