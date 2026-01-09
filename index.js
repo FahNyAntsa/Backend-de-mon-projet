@@ -99,7 +99,7 @@ app.post("/Login", async (req, res) => {
                     nom: User.lastname,
                     prenom: User.firstname,
                     photo: User.picture
-                },TOKEN_KEY,{ expiresIn: 1000 * 60 * 60 * 24 * 7 })
+                }, TOKEN_KEY, { expiresIn: 1000 * 60 * 60 * 24 * 7 })
                 // console.log(User)
                 // console.log(Token)
                 res.cookie("Token", Token, { httpOnly: true, secure: false, sameSite: "lax" })
@@ -183,10 +183,10 @@ app.get("/Accessories", async (req, res) => {
         // console.log(name)
         const Sql = "SELECT * FROM products WHERE name LIKE ? AND category IN ('drum','accessoriesOne','accessoriesTwo')"
         const SqlNombreTotalDeProduit = "SELECT COUNT(*) AS Total FROM products WHERE name LIKE ? AND category IN ('accessoriesOne','accessoriesTwo')"
-        const SearchResponse = await db.execute(Sql,Value)
-        const nombreTotalDeProduit = await db.execute(SqlNombreTotalDeProduit,[Value])
+        const SearchResponse = await db.execute(Sql, Value)
+        const nombreTotalDeProduit = await db.execute(SqlNombreTotalDeProduit, [Value])
         const nombreTotalDePage = Math.ceil(nombreTotalDeProduit[0].Total / pageLimit)
-        res.json({SearchResponse,nombreTotalDePage:nombreTotalDePage,nombreTotalDeProduit:nombreTotalDeProduit})
+        res.json({ SearchResponse, nombreTotalDePage: nombreTotalDePage, nombreTotalDeProduit: nombreTotalDeProduit })
     } catch (error) {
         console.log(`erreur Sql trouvée : ${error}`)
     }
@@ -205,15 +205,15 @@ app.get("/Product/:id", TokenVerify, async (req, res) => {
 })
 app.post("/Product", TokenVerify, async (req, res) => {
     try {
-        const ProductId = {...req.body}
+        const ProductId = { ...req.body }
         // const ProductId = req.params.id
         const UserId = req.userInfo.id
         // console.log(req.userInfo)
-        console.log(ProductId.id,UserId)
+        // console.log(ProductId.id,UserId)
         const Sql = "INSERT INTO command(user_id,product_id) VALUES(?,?)"
-        const Values = [UserId,ProductId.id]
-        const response = await db.execute(Sql,Values)
-        res.json({response,status:200})
+        const Values = [UserId, ProductId.id]
+        const response = await db.execute(Sql, Values)
+        res.json({ response, status: 200 })
         // res.json({ status: 200, message: "produit ajoutée" })
     } catch (error) {
         console.log(error)
@@ -234,12 +234,57 @@ app.get("/Product", TokenVerify, async (req, res) => {
 app.delete("/Product/:id", TokenVerify, async (req, res) => {
     try {
         const ProductId = req.params.id
-        const Sql = "DELETE FROM command WHERE id=?"
+        const Sql = "DELETE FROM products WHERE id=?"
         const response = db.execute(Sql, ProductId)
         // console.log(ProductId)
-        res.json(response)
+        res.json({status:200,message:"Suppression avec succès"})
     } catch (error) {
         console.lopg(error)
+    }
+})
+app.get("/AllCommand", TokenVerify, async (req, res) => {
+    try {
+        const Sql = "SELECT * FROM command"
+        const response = await db.query(Sql)
+        res.json(response)
+    } catch (error) {
+        console.log(error)
+    }
+})
+app.get("/AllProducts", TokenVerify, async (req, res) => {
+    try {
+        const page = parseInt(req.query.page) || 1
+        const pageLimit = parseInt(req.query.limit) || 5
+        const pageOffset = (page - 1) * pageLimit
+        const Sql = "SELECT * FROM products LIMIT ? OFFSET ?"
+        const SqlCountProduct = "SELECT COUNT(*) AS Total FROM products"
+        const responseSql = await db.query(Sql, [pageLimit, pageOffset])
+        const responseSqlCountProduct = await db.query(SqlCountProduct)
+        const NombreDePage = Math.ceil(responseSqlCountProduct[0].Total / pageLimit)
+        // console.log(NombreDePage)
+        // res.json(response)
+        res.json({ responseSql, NombreDePage: NombreDePage, responseSqlCountProduct: responseSqlCountProduct })
+    } catch (error) {
+        console.log(error)
+    }
+})
+app.get("/NombreDeProduit", TokenVerify, async (req, res) => {
+    try {
+        const Sql = "SELECT * FROM products"
+        const response = await db.query(Sql)
+        res.json(response)
+    } catch (error) {
+        console.log(error)
+    }
+})
+app.get("/AllUser", TokenVerify, async (req, res) => {
+    try {
+        const Sql = "SELECT * FROM users"
+        const response = await db.query(Sql)
+        console.log(response)
+        res.json(response)
+    } catch (error) {
+        console.log(error)
     }
 })
 app.listen(Port, () => console.log("Le serveur est démarré sur le port" + Port))
