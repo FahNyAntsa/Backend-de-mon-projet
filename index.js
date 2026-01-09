@@ -99,14 +99,10 @@ app.post("/Login", async (req, res) => {
                     nom: User.lastname,
                     prenom: User.firstname,
                     photo: User.picture
-                },
-                    TOKEN_KEY,
-                    { expiresIn: 1000 * 60 * 60 * 24 * 7 }
-                )
+                },TOKEN_KEY,{ expiresIn: 1000 * 60 * 60 * 24 * 7 })
                 // console.log(User)
                 // console.log(Token)
                 res.cookie("Token", Token, { httpOnly: true, secure: false, sameSite: "lax" })
-
                 res.json({
                     status: 200,
                     user: {
@@ -146,7 +142,7 @@ app.post("/Logout", (req, res) => {
 app.get("/Drum", TokenVerify, async (req, res) => {
     try {
         const User = req.userInfo
-        console.log(User.prenom)
+        // console.log(User.prenom)
         const Sql = "SELECT * FROM products WHERE category=?"
         const Drum = await db.execute(Sql, "drum")
         // console.log(req.userInfo)
