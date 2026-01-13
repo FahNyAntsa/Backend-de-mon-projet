@@ -8,6 +8,7 @@ const path = require("path")
 const bcrypt = require("bcryptjs")
 const jwt = require("jsonwebtoken")
 const cookieParser = require("cookie-parser")
+const fs = require("fs")
 require("dotenv").config()
 
 app.use(cors({
@@ -18,6 +19,7 @@ app.use(cookieParser())
 app.use(express.urlencoded({ extended: true }))
 app.use(express.json())
 app.use("/upload/users", express.static(path.join(__dirname, './Public/Upload/Users')))
+app.use("/upload/products", express.static(path.join(__dirname, './Public/Upload/Products')))
 const TokenVerify = (req, res, next) => {
     try {
         const Token = req.cookies.Token
@@ -45,12 +47,23 @@ const storage = multer.diskStorage({
         cb(null, imageName)
     }
 })
-
+const ProductStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, "./Public/Upload/Products")
+    },
+    filename: (req, file, cb) => {
+        const filename = file.originalname
+        const extension = path.extname(filename)
+        const imageName = "SARY_" + Math.round(Math.random() * 99999999999999999) + extension
+        cb(null, imageName)
+    }
+})
 // USERS INFO DEBUT
 const UserPhotoUploaded = multer({ storage })
 app.post("/Registing", UserPhotoUploaded.single("image"), async (req, res) => {
     try {
         const body = { ...req.body }
+        // console.log(body)
         const nom = body.nom
         const prenom = body.prenom
         const email = body.email
@@ -59,6 +72,7 @@ app.post("/Registing", UserPhotoUploaded.single("image"), async (req, res) => {
         const password = await bcrypt.hash(mdp, salt)
         const image = req.file ? req.file.filename : "default.jpg"
         // console.log({ nom, prenom, email, mdp, password, image })
+        console.log(req.file)
         // VERIFICATION SI L'USER EXISTE
         const SqlUserVerifing = "SELECT * FROM users WHERE email=?"
         const emailUserVerifing = email
@@ -68,7 +82,13 @@ app.post("/Registing", UserPhotoUploaded.single("image"), async (req, res) => {
             const Sql = "INSERT INTO users(lastname,firstname,email,password,picture) VALUES(?,?,?,?,?)"
             const Values = [nom, prenom, email, password, image]
             const User = db.execute(Sql, Values)
-            res.json({ message: "Inscription réussite", status: 200 })
+            const UserInfo = {
+                lastname: nom,
+                firstname: prenom,
+                email,
+                picture: image
+            }
+            res.json(UserInfo)
         } else {
             res.json({ message: "L'email a déjà un compte", status: 401 })
         }
@@ -234,10 +254,19 @@ app.get("/Product", TokenVerify, async (req, res) => {
 app.delete("/Product/:id", TokenVerify, async (req, res) => {
     try {
         const ProductId = req.params.id
+        const ImageSql = "SELECT * FROM products WHERE id=?"
+        const ImageResponse = await db.execute(ImageSql, ProductId)
+        const ImageName = ImageResponse[0].pics
         const Sql = "DELETE FROM products WHERE id=?"
-        const response = db.execute(Sql, ProductId)
+        // const response = db.execute(Sql, ProductId)
+        const ImagePath = "./Public/Upload/Products/" + ImageName
+        if (fs.existsSync(ImagePath)) {
+            const response = await db.execute(Sql, ProductId)
+            fs.unlinkSync(ImagePath)
+            res.json({ status: 200, message: "Suppression avec succès" })
+        }
+        // console.log(ImageResponse)
         // console.log(ProductId)
-        res.json({status:200,message:"Suppression avec succès"})
     } catch (error) {
         console.lopg(error)
     }
@@ -256,7 +285,7 @@ app.get("/AllProducts", TokenVerify, async (req, res) => {
         const page = parseInt(req.query.page) || 1
         const pageLimit = parseInt(req.query.limit) || 5
         const pageOffset = (page - 1) * pageLimit
-        const Sql = "SELECT * FROM products LIMIT ? OFFSET ?"
+        const Sql = "SELECT * FROM products ORDER BY id DESC LIMIT ? OFFSET ? "
         const SqlCountProduct = "SELECT COUNT(*) AS Total FROM products"
         const responseSql = await db.query(Sql, [pageLimit, pageOffset])
         const responseSqlCountProduct = await db.query(SqlCountProduct)
@@ -279,9 +308,113 @@ app.get("/NombreDeProduit", TokenVerify, async (req, res) => {
 })
 app.get("/AllUser", TokenVerify, async (req, res) => {
     try {
+        const Page = parseInt(req.query.page) || 1
+        const Limit = parseInt(req.query.limit) || 5
+        const Offset = (Page - 1) * Limit
+        const Sql = "SELECT * FROM users ORDER BY id DESC LIMIT ? OFFSET ?"
+        const Response = await db.execute(Sql, [Limit, Offset])
+        const SqlcountUsers = "SELECT COUNT(*) AS Total FROM users"
+        const Total = await db.execute(SqlcountUsers)
+        const NbrDePage = Math.ceil(Total[0].Total / Limit)
+        console.log(Total, Response)
+        // const response = await db.query(Sql)
+        // console.log(response)
+        res.json({Response,NbrDePage})
+    } catch (error) {
+        console.log(error)
+        console.log(error)
+    }
+})
+app.get("/Utilisateurs",TokenVerify,async(req,res)=>{
+    try {
         const Sql = "SELECT * FROM users"
-        const response = await db.query(Sql)
-        console.log(response)
+        const response = await db.execute(Sql)
+        res.json(response)
+        
+    } catch (error) {
+        console.log(error)
+    }
+})
+const ProductImageUploaded = multer({ storage: ProductStorage })
+app.post("/AddProduct", ProductImageUploaded.single("file"), TokenVerify, async (req, res) => {
+    try {
+        const body = { ...req.body }
+        const name = body.name
+        const price = parseInt(body.price)
+        const describes = body.describes
+        const category = body.category
+        const file = req.file ? req.file.filename : "default.jpg"
+        const Sql = "INSERT INTO products(name,describes,pics,category,Price) VALUES(?,?,?,?,?)"
+        const response = await db.execute(Sql, [name, describes, file, category, price])
+        // console.log(body,req.file)
+        const product = {
+            id: response.insertId,
+            name,
+            describes,
+            pics: file,
+            category,
+            Price: price
+        }
+        res.json(product)
+    } catch (error) {
+        console.log(error)
+    }
+})
+app.put("/UpdateProduct", TokenVerify, async (req, res) => {
+    try {
+        console.log(req.body)
+        const price = req.body.prix
+        const Describes = req.body.describes
+        const category = req.body.category
+        const id = req.body.id
+        const name = req.body.name
+        const Sql = "UPDATE products SET name=?,describes=?,category=?,Price=? WHERE id=?"
+        const response = db.execute(Sql, [name, Describes, category, price, id])
+        res.json({ response, status: 200 })
+    } catch (error) {
+        console.log(error)
+    }
+})
+app.put("/UpdateUser",UserPhotoUploaded.single("Image"),TokenVerify,async(req,res)=>{
+    try {
+        const body={...req.body}
+        const image = req.file ? req.file.filename : body.Image
+        const lastname = body.nom
+        const firstname=body.prenom
+        const id = body.id
+        const email=body.email
+        console.log(body,image)
+        const Sql = "UPDATE users SET lastname=?,firstname=?,email=?,picture=? WHERE id=?"
+        const response = db.execute(Sql,[lastname,firstname,email,image,id])
+        res.json({status:200})
+    } catch (error) {
+        console.log(error)
+    }
+})
+app.get("/User/:id",TokenVerify,async(req,res)=>{
+    try {
+        const Sql = "SELECT * FROM users WHERE id=?"
+        const response = await db.execute(Sql,req.params.id)
+        res.json(response)
+    } catch (error) {
+        console.log(error)
+    }
+})
+app.get("/UserSearch",TokenVerify,async(req,res)=>{
+    try {
+        const value = req.query.value
+        const Sql = "SELECT * FROM users WHERE lastname LIKE ? OR firstname LIKE ?"
+        const response = await db.execute(Sql,[`%${value}%`,`%${value}%`])
+        res.json(response)
+    } catch (error) {
+        console.log(error)
+    }
+})
+app.get("/ProductSearch",TokenVerify,async(req,res)=>{
+    try {
+        const value = req.query.value
+        const Sql = "SELECT * FROM products WHERE name LIKE ?"
+        const response = await db.execute(Sql,[`%${value}%`])
         res.json(response)
     } catch (error) {
         console.log(error)
