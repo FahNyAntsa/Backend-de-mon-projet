@@ -4,6 +4,10 @@ const app = express()
 const multer = require("multer")
 const db = require("./db")
 const cors = require("cors")
+const cookies = require("cookie")
+const http = require("http")
+const { Server } = require('socket.io')
+const server = http.createServer(app)
 const path = require("path")
 const bcrypt = require("bcryptjs")
 const jwt = require("jsonwebtoken")
@@ -15,6 +19,7 @@ app.use(cors({
     origin: ["http://localhost:5173"],
     credentials: true
 }))
+
 app.use(cookieParser())
 app.use(express.urlencoded({ extended: true }))
 app.use(express.json())
@@ -280,6 +285,15 @@ app.get("/AllCommand", TokenVerify, async (req, res) => {
         console.log(error)
     }
 })
+app.get("/CountCommand", TokenVerify, async (req, res) => {
+    try {
+        const Sql = "SELECT COUNT(*) AS Total FROM command WHERE status='Payé'"
+        const response = await db.execute(Sql)
+        res.json(response)
+    } catch (error) {
+        console.log(error)
+    }
+})
 app.get("/AllProducts", TokenVerify, async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1
@@ -319,18 +333,18 @@ app.get("/AllUser", TokenVerify, async (req, res) => {
         console.log(Total, Response)
         // const response = await db.query(Sql)
         // console.log(response)
-        res.json({Response,NbrDePage})
+        res.json({ Response, NbrDePage })
     } catch (error) {
         console.log(error)
         console.log(error)
     }
 })
-app.get("/Utilisateurs",TokenVerify,async(req,res)=>{
+app.get("/Utilisateurs", TokenVerify, async (req, res) => {
     try {
         const Sql = "SELECT * FROM users"
         const response = await db.execute(Sql)
         res.json(response)
-        
+
     } catch (error) {
         console.log(error)
     }
@@ -375,46 +389,72 @@ app.put("/UpdateProduct", TokenVerify, async (req, res) => {
         console.log(error)
     }
 })
-app.put("/UpdateUser",UserPhotoUploaded.single("Image"),TokenVerify,async(req,res)=>{
+app.put("/UpdateUser", UserPhotoUploaded.single("Image"), TokenVerify, async (req, res) => {
     try {
-        const body={...req.body}
+        const body = { ...req.body }
         const image = req.file ? req.file.filename : body.Image
         const lastname = body.nom
-        const firstname=body.prenom
+        const firstname = body.prenom
         const id = body.id
-        const email=body.email
-        console.log(body,image)
+        const email = body.email
+        console.log(body, image)
         const Sql = "UPDATE users SET lastname=?,firstname=?,email=?,picture=? WHERE id=?"
-        const response = db.execute(Sql,[lastname,firstname,email,image,id])
-        res.json({status:200})
+        const response = db.execute(Sql, [lastname, firstname, email, image, id])
+        res.json({ status: 200 })
     } catch (error) {
         console.log(error)
     }
 })
-app.get("/User/:id",TokenVerify,async(req,res)=>{
+app.get("/User/:id", TokenVerify, async (req, res) => {
     try {
         const Sql = "SELECT * FROM users WHERE id=?"
-        const response = await db.execute(Sql,req.params.id)
+        const response = await db.execute(Sql, req.params.id)
         res.json(response)
     } catch (error) {
         console.log(error)
     }
 })
-app.get("/UserSearch",TokenVerify,async(req,res)=>{
+app.get("/UserSearch", TokenVerify, async (req, res) => {
     try {
         const value = req.query.value
         const Sql = "SELECT * FROM users WHERE lastname LIKE ? OR firstname LIKE ?"
-        const response = await db.execute(Sql,[`%${value}%`,`%${value}%`])
+        const response = await db.execute(Sql, [`%${value}%`, `%${value}%`])
         res.json(response)
     } catch (error) {
         console.log(error)
     }
 })
-app.get("/ProductSearch",TokenVerify,async(req,res)=>{
+app.get("/ProductSearch", TokenVerify, async (req, res) => {
     try {
         const value = req.query.value
         const Sql = "SELECT * FROM products WHERE name LIKE ?"
-        const response = await db.execute(Sql,[`%${value}%`])
+        const response = await db.execute(Sql, [`%${value}%`])
+        res.json(response)
+    } catch (error) {
+        console.log(error)
+    }
+})
+app.delete("/User/:id", TokenVerify, async (req, res) => {
+    try {
+        const id = req.params.id
+        const ImageUserSQL = "SELECT * FROM users WHERE id=?"
+        const responseImage = await db.execute(ImageUserSQL, id)
+        const ImagePath = "./Public/Upload/Users/" + responseImage[0].picture
+        console.log(ImagePath)
+        const Sql = "DELETE FROM users WHERE id=?"
+        if (fs.existsSync(ImagePath)) {
+            fs.unlinkSync(ImagePath)
+            const response = await db.execute(Sql, id)
+            res.json({ status: 200 })
+        }
+    } catch (error) {
+        console.log(error)
+    }
+})
+app.get("/LastUser",TokenVerify,async(req,res)=>{
+    try {
+        const response = await db.query("SELECT id,firstname FROM users ORDER BY id DESC LIMIT 5")
+        // console.log(response)
         res.json(response)
     } catch (error) {
         console.log(error)
