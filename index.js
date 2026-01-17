@@ -256,6 +256,15 @@ app.get("/Product", TokenVerify, async (req, res) => {
         console.log(error)
     }
 })
+app.get("/CommandInfo",TokenVerify,async(req,res)=>{
+    try {
+        const Sql = "SELECT command.id,command.user_id,products.id AS product_id,products.name,products.Price FROM command INNER JOIN products ON command.product_id=products.id"
+        const response = await db.query(Sql)
+        res.json(response)
+    } catch (error) {
+        console.log(error)
+    }
+})
 app.delete("/Product/:id", TokenVerify, async (req, res) => {
     try {
         const ProductId = req.params.id
@@ -281,6 +290,17 @@ app.get("/AllCommand", TokenVerify, async (req, res) => {
         const Sql = "SELECT * FROM command"
         const response = await db.query(Sql)
         res.json(response)
+    } catch (error) {
+        console.log(error)
+    }
+})
+app.put("/Command/:id",TokenVerify,async(req,res)=>{
+    try {
+        const id = req.params.id
+        const status="Livré"
+        const Sql = "UPDATE command SET status=? WHERE id=?"
+        const response = await db.execute(Sql,[status,id])
+        res.json({status:200,succès:"ok"})
     } catch (error) {
         console.log(error)
     }
