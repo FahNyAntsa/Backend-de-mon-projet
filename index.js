@@ -23,8 +23,23 @@ app.use(cors({
 app.use(cookieParser())
 app.use(express.urlencoded({ extended: true }))
 app.use(express.json())
+const nodemailer = require("nodemailer")
 app.use("/upload/users", express.static(path.join(__dirname, './Public/Upload/Users')))
 app.use("/upload/products", express.static(path.join(__dirname, './Public/Upload/Products')))
+const transport = nodemailer.createTransport({
+    host: "smtp.gmail.com",
+    port: 465,
+    secure: true,
+    auth: {
+        user: process.env.USER_MAIL,
+        pass: process.env.USER_PASSWORD
+    },
+    tls: {
+        rejectUnauthorized: false
+    },
+
+})
+
 const TokenVerify = (req, res, next) => {
     try {
         const Token = req.cookies.Token
@@ -256,7 +271,7 @@ app.get("/Product", TokenVerify, async (req, res) => {
         console.log(error)
     }
 })
-app.get("/CommandInfo",TokenVerify,async(req,res)=>{
+app.get("/CommandInfo", TokenVerify, async (req, res) => {
     try {
         const Sql = "SELECT command.id,command.user_id,products.id AS product_id,products.name,products.Price FROM command INNER JOIN products ON command.product_id=products.id"
         const response = await db.query(Sql)
@@ -294,13 +309,13 @@ app.get("/AllCommand", TokenVerify, async (req, res) => {
         console.log(error)
     }
 })
-app.put("/Command/:id",TokenVerify,async(req,res)=>{
+app.put("/Command/:id", TokenVerify, async (req, res) => {
     try {
         const id = req.params.id
-        const status="Livré"
+        const status = "Livré"
         const Sql = "UPDATE command SET status=? WHERE id=?"
-        const response = await db.execute(Sql,[status,id])
-        res.json({status:200,succès:"ok"})
+        const response = await db.execute(Sql, [status, id])
+        res.json({ status: 200, succès: "ok" })
     } catch (error) {
         console.log(error)
     }
@@ -471,11 +486,30 @@ app.delete("/User/:id", TokenVerify, async (req, res) => {
         console.log(error)
     }
 })
-app.get("/LastUser",TokenVerify,async(req,res)=>{
+app.get("/LastUser", TokenVerify, async (req, res) => {
     try {
         const response = await db.query("SELECT id,firstname FROM users ORDER BY id DESC LIMIT 5")
         // console.log(response)
         res.json(response)
+    } catch (error) {
+        console.log(error)
+    }
+})
+app.post("/Contact", TokenVerify, async (req, res) => {
+    try {
+        const body = { ...req.body }
+        const ExpeditorName = body.name
+        const ExpeditorEmail=body.email
+        const ExpeditorObject = body.object
+        const ExpeditorMessage = body.message
+        const MailOptions = {
+            from: `${ExpeditorName}:<${ExpeditorEmail}>`,
+            to: process.env.USER_MAIL,
+            subject: ExpeditorObject,
+            text:ExpeditorMessage,
+        }
+        const response =await transport.sendMail(MailOptions)
+        return res.json({success:true,reponse:response})
     } catch (error) {
         console.log(error)
     }
